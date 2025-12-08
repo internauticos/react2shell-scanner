@@ -38,6 +38,35 @@ The `--windows` flag switches the payload from Unix shell (`echo $((41*271))`) t
 pip install -r requirements.txt
 ```
 
+## Docker
+
+You can run the scanner inside a Docker container. The container image is small and runs the `scanner.py` directly.
+
+Build the image:
+
+```bash
+docker build -t react2shell-scanner .
+```
+
+Run a single-host safe check (recommended when testing unknown targets):
+
+```bash
+docker run --rm react2shell-scanner -u https://example.com --safe-check
+```
+
+Scan a hosts file from your working directory and save results to a file (mount the current directory):
+
+```bash
+docker run --rm -v "$(pwd)":/app react2shell-scanner -l hosts.txt --safe-check -o results.json
+```
+
+Notes:
+
+- The container runs as a non-root user.
+- By default the scanner performs the active RCE PoC when `--safe-check` is not used. Use `--safe-check` to avoid executing payloads on targets you do not control.
+- Use `-k/--insecure` if you need to disable SSL verification (opt-in).
+
+
 ## Usage
 
 Scan a single host:
@@ -125,3 +154,13 @@ This tooling originally was built out as a safe way to detect the RCE. This func
 ## Output
 
 Results are printed to the terminal. When using `-o`, vulnerable hosts are saved to a JSON file containing the full HTTP request and response for verification.
+
+## Ethics & Disclaimer
+
+- **Purpose:** This tool is provided to help defenders and researchers detect and verify CVE-2025-55182 / CVE-2025-66478. It exists to improve security by sharing detection techniques and amplifying the work of other security researchers.
+- **Authorization Required:** Only run this scanner against systems you own or where you have explicit, written permission to test. Unauthorized scanning may be illegal and unethical.
+- **Safe-by-Default Guidance:** When testing unknown targets, prefer the `--safe-check` flag which uses side-channel indicators instead of executing the RCE proof-of-concept. The default RCE PoC mode may execute commands on the target; use it only with explicit authorization.
+- **No Warranty / No Guarantees:** This tool is provided "as-is". I do not guarantee its accuracy, completeness, or suitability. Use at your own risk — I accept no liability for damages or unintended consequences arising from its use.
+- **Verification Recommended:** Scan results may include false positives or false negatives. Always verify findings manually and follow responsible disclosure practices when reporting vulnerabilities.
+- **Maintainer Note:** I maintain this project in my spare time and may not be able to respond promptly to issues or pull requests. I don't have sufficient time to focus on original research; this project packages and shares the work of the original researchers to help defenders. Thank you to the researchers and contributors whose work made this possible.
+
